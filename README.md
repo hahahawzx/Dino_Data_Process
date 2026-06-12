@@ -9,11 +9,12 @@
 标准化后的数据需要满足以下目标：
 
 - 区分不同设备位置：`phone`、`watch`、`ring`、`other`
-- 只保留六轴 IMU：三轴加速度计和三轴陀螺仪
+- 保留三轴加速度计；如果数据源包含三轴陀螺仪，也一并保留
 - 统一单位制：
   - 加速度：`m/s^2`
   - 角速度：`rad/s`
 - 统一坐标系：右手系 `x/y/z`
+- 统一时间戳：片段内从 `0` 开始，单位 `ms`
 - 输出两种切片模式：
   - `10s`：每段约 10 秒
   - `1000f`：每段 1000 帧
@@ -97,20 +98,25 @@ processed/sources/{src}/segments/{mode}/{device}/{segment_id}.npz
 
 ## NPZ 片段格式
 
-每个 `.npz` 文件必须包含两个数组：
+每个 `.npz` 文件必须包含 `acc` 数组。如果数据源包含陀螺仪，还必须包含 `gyro` 数组；如果数据源没有陀螺仪，则不写入 `gyro`，并在 manifest 中设置 `has_gyro: false`。
 
-| Key | Shape | Dtype | Unit | Axis |
+| Key | Required | Shape | Dtype | Columns |
 | --- | --- | --- | --- | --- |
-| `acc` | `[T, 3]` | `float32` | `m/s^2` | right-handed `x/y/z` |
-| `gyro` | `[T, 3]` | `float32` | `rad/s` | right-handed `x/y/z` |
+| `acc` | yes | `[T, 4]` | `float32` | `time_ms, acc_x, acc_y, acc_z` |
+| `gyro` | no | `[T, 4]` | `float32` | `time_ms, gyro_x, gyro_y, gyro_z` |
 
 数组列顺序固定为：
 
 ```text
-[:, 0] = x
-[:, 1] = y
-[:, 2] = z
+[:, 0] = time_ms
+[:, 1] = x
+[:, 2] = y
+[:, 3] = z
 ```
+
+`time_ms` 是片段内部时间戳，单位为毫秒，必须从 `0` 开始。若原数据有可用时间戳，应转换为相对当前片段起点的毫秒时间戳。若原数据没有可用时间戳，`time_ms` 列必须全部填 `0`，并在 manifest 中设置 `has_timestamp: false`。
+
+`acc[:, 1:4]` 的单位为 `m/s^2`，坐标轴为右手系 `x/y/z`。如果存在 `gyro`，`gyro[:, 1:4]` 的单位为 `rad/s`，坐标轴为右手系 `x/y/z`。
 
 暂时不保存磁力计或其他传感器。如果后续需要加入其他信号，应先更新本规范，再生成新的标准数据。
 
@@ -177,7 +183,7 @@ source manifest 只记录当前 `src` 的片段，不记录其他数据源。
 示例：
 
 ```json
-{"dir":"sources/source_a/segments/10s/phone/00000001.npz","src":"source_a","device":"phone","freq":100.0,"mode":"10s","num_frames":1000,"duration_sec":10.0,"label":{"raw":"walking"}}
+{"dir":"sources/source_a/segments/10s/phone/00000001.npz","src":"source_a","device":"phone","freq":100.0,"mode":"10s","num_frames":1000,"duration_sec":10.0,"has_timestamp":true,"has_gyro":true,"label":{"raw":"walking"}}
 ```
 
 ### Global Manifest
@@ -239,12 +245,14 @@ device manifest 是按设备过滤后的便捷训练入口。
 | `mode` | string | yes | `10s` 或 `1000f` |
 | `num_frames` | integer | yes | 片段实际帧数 |
 | `duration_sec` | number | yes | 片段时长，单位秒 |
+| `has_timestamp` | boolean | yes | `acc` 和可用的 `gyro` 是否包含真实时间戳 |
+| `has_gyro` | boolean | yes | `.npz` 中是否包含 `gyro` 数组 |
 | `label` | object | yes | 原数据集标签和其他标签信息 |
 
 `dir` 必须相对 `processed/`，不能使用绝对路径，也不能相对仓库根目录。例如：
 
 ```json
-{"dir":"sources/source_a/segments/1000f/ring/00000001.npz","src":"source_a","device":"ring","freq":50.0,"mode":"1000f","num_frames":1000,"duration_sec":20.0,"label":{"raw":"sitting"}}
+{"dir":"sources/source_a/segments/1000f/ring/00000001.npz","src":"source_a","device":"ring","freq":50.0,"mode":"1000f","num_frames":1000,"duration_sec":20.0,"has_timestamp":true,"has_gyro":false,"label":{"raw":"sitting"}}
 ```
 
 `label` 至少建议包含原始标签：
@@ -269,15 +277,16 @@ device manifest 是按设备过滤后的便捷训练入口。
 2. 识别设备位置，并映射到 `phone`、`watch`、`ring`、`other` 之一。
 3. 识别或确定采样频率 `freq`。
 4. 将加速度转换为 `m/s^2`。
-5. 将角速度转换为 `rad/s`。
+5. 如果存在陀螺仪，将角速度转换为 `rad/s`。
 6. 将坐标轴转换为右手系 `x/y/z`。
 7. 根据 `10s` 和 `1000f` 两种模式切片。
 8. 丢弃不足目标长度的尾段，不做 padding。
-9. 将 `acc` 和 `gyro` 转为 `float32`。
-10. 写入 `.npz` 文件。
-11. 写入当前 source 的 JSONL manifest。
-12. 通过验收检查后，才允许加入最终 `processed/` 数据集。
-13. 重新生成全局 manifest 和按设备 manifest。
+9. 将每个片段的时间戳转换为从 `0` 开始的 `time_ms`；若无可用时间戳，则填 `0`。
+10. 将 `acc` 和可用的 `gyro` 转为 `[T, 4]` 的 `float32` 数组。
+11. 写入 `.npz` 文件。
+12. 写入当前 source 的 JSONL manifest，并记录 `has_timestamp` 和 `has_gyro`。
+13. 通过验收检查后，才允许加入最终 `processed/` 数据集。
+14. 重新生成全局 manifest 和按设备 manifest。
 
 本 README 不规定每个原始数据集的具体字段映射、单位换算来源、坐标轴换算矩阵或标签映射规则。这些细节应在后续数据集专门处理文档中说明。
 
@@ -293,10 +302,16 @@ device manifest 是按设备过滤后的便捷训练入口。
 - `src` 与所在目录 `processed/sources/{src}/` 一致
 - `device` 只允许 `phone`、`watch`、`ring`、`other`
 - `mode` 只允许 `10s`、`1000f`
-- `.npz` 文件包含 `acc` 和 `gyro`
-- `acc` 和 `gyro` 都是 `float32`
-- `acc` 和 `gyro` 都是二维数组，shape 为 `[T, 3]`
-- `acc.shape[0] == gyro.shape[0] == num_frames`
+- `.npz` 文件必须包含 `acc`
+- 如果 `has_gyro == true`，`.npz` 文件必须包含 `gyro`
+- 如果 `has_gyro == false`，`.npz` 文件不应包含伪造的 `gyro` 数据
+- `acc` 和可用的 `gyro` 都是 `float32`
+- `acc` 和可用的 `gyro` 都是二维数组，shape 为 `[T, 4]`
+- `acc.shape[0] == num_frames`
+- 如果存在 `gyro`，`gyro.shape[0] == num_frames`
+- `acc[:, 0]` 和可用的 `gyro[:, 0]` 是 `time_ms`
+- 如果 `has_timestamp == true`，`time_ms` 必须从 `0` 开始，单位为毫秒
+- 如果 `has_timestamp == false`，`time_ms` 必须全部为 `0`
 - 数组值全部有限，不包含 `NaN` 或 `Inf`
 - `10s` 模式下 `num_frames == ceil(freq * 10)`
 - `1000f` 模式下 `num_frames == 1000`
@@ -329,8 +344,14 @@ npz_path = processed_dir / item["dir"]
 data = np.load(npz_path)
 
 acc = torch.from_numpy(data["acc"])
-gyro = torch.from_numpy(data["gyro"])
-imu = torch.cat([acc, gyro], dim=1)  # shape: [T, 6]
+acc_xyz = acc[:, 1:4]
+
+if item["has_gyro"]:
+    gyro = torch.from_numpy(data["gyro"])
+    gyro_xyz = gyro[:, 1:4]
+    imu = torch.cat([acc_xyz, gyro_xyz], dim=1)  # shape: [T, 6]
+else:
+    imu = acc_xyz  # shape: [T, 3]
 ```
 
 按设备训练时，可以直接读取对应的 device manifest：
@@ -354,7 +375,8 @@ processed/sources/{src}/manifests/1000f.jsonl
 当前规范版本只包含：
 
 - `acc`
-- `gyro`
+- optional `gyro`
+- segment-local `time_ms`
 - `10s` 切片
 - `1000f` 切片
 - `phone`、`watch`、`ring`、`other` 四类设备位置
