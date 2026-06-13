@@ -184,7 +184,6 @@ AuthRing 样例数据中的加速度数值量级接近 `m/s^2`，陀螺仪数值
 每个 session 至少需要满足：
 
 - `session.json` 存在并可解析。
-- `status == "COMPLETED"`。
 - 对应 device 所需的 IMU 文件存在。
 - 对应 device 的时间轴可以恢复到 200 Hz。
 - 对应 device 的 acc/gyro 数值有限，不包含 `NaN` 或 `Inf`。
@@ -239,23 +238,17 @@ AuthRing 的 label 使用佩戴手指，因此允许跨 stage 切片。
 
 ## Label Policy
 
-AuthRing 的主 label 为戒指佩戴手指。
+AuthRing 的主 label 为戒指佩戴手指。为了避免训练入口里混入中文标签，manifest 中只保留英文标准化手指标签。
 
-`label.raw` 必须来自 `session.json` 的：
+原始手指信息来自 `session.json` 的：
 
 ```text
 ringWearingFinger
 ```
 
-示例：
+映射关系：
 
-```json
-{"raw":"右手无名指"}
-```
-
-推荐同时保存标准化手指标签：
-
-| 原始值 | 推荐 `label.finger` |
+| 原始值 | `label.finger` |
 | --- | --- |
 | `右手拇指` | `right_thumb` |
 | `右手食指` | `right_index` |
@@ -263,18 +256,17 @@ ringWearingFinger
 | `右手无名指` | `right_ring` |
 | `右手小指` | `right_little` |
 
-`label` 只保存手指标签，不保存 stage、participant、session 或设备 ID。
+`label` 只保存英文手指标签，不保存中文 raw label、stage、participant、session 或设备 ID。
 
-推荐格式：
+标准格式：
 
 ```json
 {
-  "raw": "右手无名指",
   "finger": "right_ring"
 }
 ```
 
-如果某个片段跨越多个 stage，不需要把 stage 写入 `label.raw`，也不要把 stage 信息写入 `label`。
+如果某个片段跨越多个 stage，不需要把 stage 写入 `label`。
 
 ## Output Layout
 
@@ -292,8 +284,10 @@ AuthRing 输出目录：
 │       │       ├── ring/
 │       │       └── phone/
 │       └── manifests/
-│           ├── 10s.jsonl
-│           └── 1000f.jsonl
+│           ├── ring_10s.jsonl
+│           ├── ring_1000f.jsonl
+│           ├── phone_10s.jsonl
+│           └── phone_1000f.jsonl
 └── manifests/
     ├── all_10s.jsonl
     ├── all_1000f.jsonl
@@ -313,7 +307,7 @@ sources/authring/segments/1000f/phone/00000001.npz
 manifest entry 示例：
 
 ```json
-{"dir":"sources/authring/segments/10s/ring/00000001.npz","src":"authring","device":"ring","freq":200.0,"mode":"10s","num_frames":2000,"duration_sec":10.0,"has_timestamp":true,"has_gyro":true,"label":{"raw":"右手无名指","finger":"right_ring"}}
+{"dir":"sources/authring/segments/10s/ring/00000001.npz","src":"authring","device":"ring","freq":200.0,"mode":"10s","num_frames":2000,"duration_sec":10.0,"has_timestamp":true,"has_gyro":true,"label":{"finger":"right_ring"}}
 ```
 
 ## Validation Before Acceptance
@@ -333,6 +327,6 @@ AuthRing 数据进入 `/Volumes/Felix_Backups/Processed` 前必须检查：
 - `acc[:, 0]` 和 `gyro[:, 0]` 从 `0` 开始，单位为 ms。
 - `acc[:, 1:4]` 和 `gyro[:, 1:4]` 全部为有限值。
 - CE56 session 不产生 ring 片段。
-- 每个片段的 `label.raw` 来自 `session.json:ringWearingFinger`。
+- 每个片段的 `label` 只包含 `finger`。
 
 如果任一检查失败，对应 session/device/mode 不得进入最终 processed 数据。
