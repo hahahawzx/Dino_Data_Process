@@ -43,8 +43,14 @@ processed/
 │   │   │       ├── ring/
 │   │   │       └── other/
 │   │   └── manifests/
-│   │       ├── 10s.jsonl
-│   │       └── 1000f.jsonl
+│   │       ├── phone_10s.jsonl
+│   │       ├── phone_1000f.jsonl
+│   │       ├── watch_10s.jsonl
+│   │       ├── watch_1000f.jsonl
+│   │       ├── ring_10s.jsonl
+│   │       ├── ring_1000f.jsonl
+│   │       ├── other_10s.jsonl
+│   │       └── other_1000f.jsonl
 │   │
 │   └── source_b/
 │       ├── segments/
@@ -59,8 +65,14 @@ processed/
 │       │       ├── ring/
 │       │       └── other/
 │       └── manifests/
-│           ├── 10s.jsonl
-│           └── 1000f.jsonl
+│           ├── phone_10s.jsonl
+│           ├── phone_1000f.jsonl
+│           ├── watch_10s.jsonl
+│           ├── watch_1000f.jsonl
+│           ├── ring_10s.jsonl
+│           ├── ring_1000f.jsonl
+│           ├── other_10s.jsonl
+│           └── other_1000f.jsonl
 │
 └── manifests/
     ├── all_10s.jsonl
@@ -174,11 +186,19 @@ Manifest 使用 JSONL 格式，一行表示一个训练片段。所有 manifest 
 每个数据源内部维护自己的权威 manifest：
 
 ```text
-processed/sources/{src}/manifests/10s.jsonl
-processed/sources/{src}/manifests/1000f.jsonl
+processed/sources/{src}/manifests/{device}_{mode}.jsonl
 ```
 
-source manifest 只记录当前 `src` 的片段，不记录其他数据源。
+source manifest 只记录当前 `{src, device, mode}` 的片段，不记录其他数据源、其他设备或其他切片模式。并非每个 source 都必须包含四类 device；只生成该 source 实际拥有的设备文件即可。
+
+路径示例：
+
+```text
+processed/sources/authring/manifests/ring_10s.jsonl
+processed/sources/authring/manifests/ring_1000f.jsonl
+processed/sources/source_a/manifests/phone_10s.jsonl
+processed/sources/source_a/manifests/watch_1000f.jsonl
+```
 
 示例：
 
@@ -198,10 +218,10 @@ processed/manifests/
 
 ```text
 processed/manifests/all_10s.jsonl
-= all sources/*/manifests/10s.jsonl
+= all sources/*/manifests/*_10s.jsonl
 
 processed/manifests/all_1000f.jsonl
-= all sources/*/manifests/1000f.jsonl
+= all sources/*/manifests/*_1000f.jsonl
 ```
 
 按设备过滤的 manifest：
@@ -284,7 +304,7 @@ device manifest 是按设备过滤后的便捷训练入口。
 9. 将每个片段的时间戳转换为从 `0` 开始的 `time_ms`；若无可用时间戳，则填 `0`。
 10. 将 `acc` 和可用的 `gyro` 转为 `[T, 4]` 的 `float32` 数组。
 11. 写入 `.npz` 文件。
-12. 写入当前 source 的 JSONL manifest，并记录 `has_timestamp` 和 `has_gyro`。
+12. 写入当前 source/device/mode 的 JSONL manifest，并记录 `has_timestamp` 和 `has_gyro`。
 13. 通过验收检查后，才允许加入最终 `processed/` 数据集。
 14. 重新生成全局 manifest 和按设备 manifest。
 
@@ -294,7 +314,7 @@ device manifest 是按设备过滤后的便捷训练入口。
 
 能进入 `processed/` 的数据默认已经验收通过。不在 `processed/` 中保留验收报告、失败样本、临时日志或中间文件。
 
-每个 source/mode 在加入最终数据前必须检查：
+每个 source/device/mode 在加入最终数据前必须检查：
 
 - source manifest 文件存在，且每一行都是合法 JSON
 - 每条 manifest 的 `dir` 都是相对 `processed/` 的路径
@@ -364,8 +384,8 @@ processed/manifests/watch_1000f.jsonl
 按数据源调试时，可以读取 source manifest：
 
 ```text
-processed/sources/{src}/manifests/10s.jsonl
-processed/sources/{src}/manifests/1000f.jsonl
+processed/sources/{src}/manifests/ring_10s.jsonl
+processed/sources/{src}/manifests/phone_1000f.jsonl
 ```
 
 无论读取哪一种 manifest，entry schema 都相同。
