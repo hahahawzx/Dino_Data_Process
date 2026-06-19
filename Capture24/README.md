@@ -411,6 +411,33 @@ manifest entry 示例：
 }
 ```
 
+## Processing Commands
+
+全量重建 Capture24：
+
+```bash
+cd /Users/zixuanwang/Code/research/Dino_Data_Process
+
+python3 Capture24/process_capture24.py \
+  --dataset-root "/Users/zixuanwang/Downloads/capture24" \
+  --processed-root "/Volumes/Felix_Backups/Processed" \
+  --overwrite
+```
+
+如果只想先处理排序后的前 50 个 participant，也就是 `P001.csv.gz` 到 `P050.csv.gz`：
+
+```bash
+cd /Users/zixuanwang/Code/research/Dino_Data_Process
+
+python3 Capture24/process_capture24.py \
+  --dataset-root "/Users/zixuanwang/Downloads/capture24" \
+  --processed-root "/Volumes/Felix_Backups/Processed" \
+  --overwrite \
+  --max-participants 50
+```
+
+注意：`--max-participants 50` 生成的是一个只包含前 50 个 participant 的 `sources/capture24`。它不是断点续跑；如果后续要补 `P051` 之后的数据，需要再增加 participant range 或 resume 机制。
+
 ## Validation Before Acceptance
 
 Capture24 数据进入 `/Volumes/Felix_Backups/Processed` 前必须检查：

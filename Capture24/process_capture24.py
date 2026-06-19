@@ -57,6 +57,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional debug limit on data rows read from each participant. Omit for full processing.",
     )
     parser.add_argument(
+        "--max-participants",
+        type=int,
+        default=None,
+        help="Process only the first N sorted participant files. Omit for all participants.",
+    )
+    parser.add_argument(
         "--progress-every-rows",
         type=int,
         default=5_000_000,
@@ -71,14 +77,24 @@ def discover_participants(dataset_root: Path) -> list[Path]:
     return sorted(path for path in dataset_root.glob("P*.csv.gz") if path.is_file())
 
 
-def get_participants(dataset_root: Path | None, participant_file: Path | None) -> list[Path]:
+def get_participants(
+    dataset_root: Path | None,
+    participant_file: Path | None,
+    max_participants: int | None,
+) -> list[Path]:
     """Resolve input mode into a participant file list."""
 
     if participant_file is not None:
         if not participant_file.exists():
             raise FileNotFoundError(f"missing participant file: {participant_file}")
         return [participant_file]
-    return discover_participants(dataset_root or DATASET_ROOT)
+
+    participants = discover_participants(dataset_root or DATASET_ROOT)
+    if max_participants is not None:
+        if max_participants <= 0:
+            raise ValueError("--max-participants must be positive")
+        participants = participants[:max_participants]
+    return participants
 
 
 def source_root(processed_root: Path) -> Path:
@@ -395,11 +411,12 @@ def run(
     processed_root: Path,
     overwrite: bool,
     max_rows: int | None,
+    max_participants: int | None,
     progress_every_rows: int,
 ) -> dict:
     """Run the Capture24 processing pipeline."""
 
-    participants = get_participants(dataset_root, participant_file)
+    participants = get_participants(dataset_root, participant_file, max_participants)
     if dataset_root is not None:
         dictionary_root = dataset_root
     elif participant_file is not None:
@@ -467,6 +484,7 @@ def main() -> None:
         args.processed_root,
         args.overwrite,
         args.max_rows,
+        args.max_participants,
         args.progress_every_rows,
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
