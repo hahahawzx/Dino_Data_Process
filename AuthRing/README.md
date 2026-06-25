@@ -19,7 +19,7 @@ authring
 原始干净数据目录为：
 
 ```text
-/Volumes/Felix_Backups/Root26.5.22/科研与科创/数据记录/AuthRing/Dataset
+/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/Dataset
 ```
 
 最终输出目录为：
@@ -308,6 +308,41 @@ manifest entry 示例：
 
 ```json
 {"dir":"sources/authring/segments/10s/ring/00000001.npz","src":"authring","device":"ring","freq":200.0,"mode":"10s","num_frames":2000,"duration_sec":10.0,"has_timestamp":true,"has_gyro":true,"label":{"finger":"right_ring"}}
+```
+
+## Processing Commands
+
+Ring:
+
+```bash
+cd /Users/zixuanwang/Code/research/Dino_Data_Process
+
+python3 AuthRing/process_ring.py \
+  --dataset-root "/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/Dataset" \
+  --processed-root "/Volumes/Felix_Backups/Processed" \
+  --overwrite
+```
+
+Phone:
+
+```bash
+cd /Users/zixuanwang/Code/research/Dino_Data_Process
+
+python3 AuthRing/process_phone.py \
+  --dataset-root "/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/Dataset" \
+  --processed-root "/Volumes/Felix_Backups/Processed" \
+  --overwrite
+```
+
+两个脚本分开重建 `authring` source 下对应 device 的输出。`process_ring.py` 只覆盖 ring 目录和 ring manifest，`process_phone.py` 只覆盖 phone 目录和 phone manifest。
+
+全部 source 都处理完后，重建全局 manifest、summary 和 visualization：
+
+```bash
+python3 Processed_Manifests/build_manifests.py \
+  --processed-root "/Volumes/Felix_Backups/Processed" \
+  --samples-per-source-mode 10 \
+  --skip-invalid
 ```
 
 ## Validation Before Acceptance

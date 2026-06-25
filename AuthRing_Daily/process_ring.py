@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 
-DATASET_ROOT = Path("/Volumes/Felix_Backups/Root26.5.22/科研与科创/数据记录/AuthRing/日常采集数据-解压")
+DATASET_ROOT = Path("/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/日常采集数据-解压")
 PROCESSED_ROOT = Path("/Volumes/Felix_Backups/Processed")
 
 SRC = "authring_daily"

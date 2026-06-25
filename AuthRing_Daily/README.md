@@ -5,7 +5,7 @@
 原始数据默认位置：
 
 ```text
-/Volumes/Felix_Backups/Root26.5.22/科研与科创/数据记录/AuthRing/日常采集数据-解压
+/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/日常采集数据-解压
 ```
 
 处理后 source id：
@@ -52,7 +52,7 @@ Ring:
 
 ```bash
 python3 AuthRing_Daily/process_ring.py \
-  --dataset-root "/Volumes/Felix_Backups/Root26.5.22/科研与科创/数据记录/AuthRing/日常采集数据-解压" \
+  --dataset-root "/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/日常采集数据-解压" \
   --processed-root "/Volumes/Felix_Backups/Processed" \
   --overwrite
 ```
@@ -61,7 +61,7 @@ Phone:
 
 ```bash
 python3 AuthRing_Daily/process_phone.py \
-  --dataset-root "/Volumes/Felix_Backups/Root26.5.22/科研与科创/数据记录/AuthRing/日常采集数据-解压" \
+  --dataset-root "/Volumes/Felix_Backups/Root/科研与科创/数据记录/AuthRing/日常采集数据-解压" \
   --processed-root "/Volumes/Felix_Backups/Processed" \
   --overwrite
 ```
