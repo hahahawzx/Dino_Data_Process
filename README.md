@@ -310,6 +310,72 @@ device manifest 是按设备过滤后的便捷训练入口。
 
 本 README 不规定每个原始数据集的具体字段映射、单位换算来源、坐标轴换算矩阵或标签映射规则。这些细节应在后续数据集专门处理文档中说明。
 
+## Processed2 扩展规范
+
+`/Volumes/Felix_Backups/Processed` 使用本 README 前面定义的原始规范：`10s` + `1000f`。
+
+`/Volumes/Felix_Backups/Processed2` 用于后续新批次数据。它沿用相同的 `.npz`、manifest entry schema、source 目录结构和验收原则，但切片模式统一改为：
+
+```text
+10s + 1024f
+```
+
+也就是说，`Processed2` 中不再生成 `1000f` 模式，而是生成 `1024f` 模式。目录和 manifest 命名中的 `1000f` 也相应替换为 `1024f`：
+
+```text
+processed2/
+├── sources/
+│   └── source_a/
+│       ├── segments/
+│       │   ├── 10s/
+│       │   │   ├── phone/
+│       │   │   ├── watch/
+│       │   │   ├── ring/
+│       │   │   └── other/
+│       │   └── 1024f/
+│       │       ├── phone/
+│       │       ├── watch/
+│       │       ├── ring/
+│       │       └── other/
+│       └── manifests/
+│           ├── phone_10s.jsonl
+│           ├── phone_1024f.jsonl
+│           ├── watch_10s.jsonl
+│           ├── watch_1024f.jsonl
+│           ├── ring_10s.jsonl
+│           ├── ring_1024f.jsonl
+│           ├── other_10s.jsonl
+│           └── other_1024f.jsonl
+└── manifests/
+    ├── all_10s.jsonl
+    ├── all_1024f.jsonl
+    ├── phone_10s.jsonl
+    ├── phone_1024f.jsonl
+    ├── watch_10s.jsonl
+    ├── watch_1024f.jsonl
+    ├── ring_10s.jsonl
+    ├── ring_1024f.jsonl
+    ├── other_10s.jsonl
+    └── other_1024f.jsonl
+```
+
+`Processed2` 的 `1024f` 模式要求：
+
+- 每个片段的 `num_frames` 必须等于 `1024`
+- 尾段不足 `1024` 帧时必须丢弃
+- 不允许 padding
+- `duration_sec` 建议记录为 `1024 / freq`
+
+`Processed2` 不强制所有数据源使用相同 `freq`。每个数据源应在自己的处理文档中明确最终重采样频率。例如，`WaveHand` 数据源统一重采样到 `150.0 Hz`，因此：
+
+```text
+WaveHand 10s   -> num_frames = 1500
+WaveHand 1024f -> num_frames = 1024
+WaveHand 1024f duration_sec = 1024 / 150 = 6.8266667
+```
+
+验收时，`Processed2` 只允许 `mode == "10s"` 或 `mode == "1024f"`；其他字段含义与 `Processed` 保持一致。
+
 ## 验收规范
 
 能进入 `processed/` 的数据默认已经验收通过。不在 `processed/` 中保留验收报告、失败样本、临时日志或中间文件。
