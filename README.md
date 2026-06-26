@@ -374,7 +374,16 @@ WaveHand 1024f -> num_frames = 1024
 WaveHand 1024f duration_sec = 1024 / 150 = 6.8266667
 ```
 
-验收时，`Processed2` 只允许 `mode == "10s"` 或 `mode == "1024f"`；其他字段含义与 `Processed` 保持一致。
+验收时，`Processed2` 默认允许 `mode == "10s"` 或 `mode == "1024f"`；其他字段含义与 `Processed` 保持一致。
+
+低频数据源可以在自己的 source README 中声明额外辅助模式，例如 `512f`。额外模式必须满足同一套 `.npz` 和 manifest schema，并且必须在 source manifest 中单独命名，例如：
+
+```text
+processed2/sources/{src}/manifests/phone_512f.jsonl
+processed2/sources/{src}/segments/512f/phone/*.npz
+```
+
+如果某个 source 需要 padding，也必须在 source README 中说明 padding 策略，并在 manifest 的 `label` 中记录 padding 信息。
 
 ## 验收规范
 
@@ -387,7 +396,7 @@ WaveHand 1024f duration_sec = 1024 / 150 = 6.8266667
 - 每条 manifest 指向的 `.npz` 文件都存在
 - `src` 与所在目录 `processed/sources/{src}/` 一致
 - `device` 只允许 `phone`、`watch`、`ring`、`other`
-- `mode` 只允许 `10s`、`1000f`
+- `mode` 在 `Processed` 中只允许 `10s`、`1000f`；在 `Processed2` 中按上文 `Processed2 扩展规范` 和 source README 验收
 - `.npz` 文件必须包含 `acc`
 - 如果 `has_gyro == true`，`.npz` 文件必须包含 `gyro`
 - 如果 `has_gyro == false`，`.npz` 文件不应包含伪造的 `gyro` 数据
